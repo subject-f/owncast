@@ -43,8 +43,6 @@ async function listenForErrors(browser, page) {
 
     const ignoreError = ignoredErrors.some((e) => msg._text.includes(e));
     if (!ignoreError) {
-      console.log(msg);
-
       throw new Error(`❌ ${msg._text}`);
     }
   });

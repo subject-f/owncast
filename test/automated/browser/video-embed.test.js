@@ -9,12 +9,19 @@ describe('Video embed page', () => {
   });
 
   afterAll(async () => {
-    await page.waitForTimeout(5000);
+    // await page.waitForTimeout(5000);
     await page.screenshot({
       path: 'screenshots/screenshot_video_embed.png',
       fullPage: true,
     });
   });
 
-  videoTest(browser, page);
+  it('should have the video container element', async () => {
+    await page.waitForSelector('#video-container');
+  });
+
+  it('should have the stream info status bar', async () => {
+    await page.waitForSelector('#stream-info');
+  });
+  // videoTest(browser, page);
 });

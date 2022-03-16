@@ -14,11 +14,13 @@ describe('Video embed page', () => {
     await page.setViewport({ width: 1080, height: 720 });
     listenForErrors(browser, page);
     page.setUserAgent('Mastodon');
-    await page.goto('http://localhost:5309');
+    await page.goto('http://localhost:5309', {
+      waitUntil: 'networkidle0',
+      timeout: 60000,
+    });
   });
 
   afterAll(async () => {
-    await page.waitForTimeout(5000);
     await page.screenshot({
       path: 'screenshots/screenshot_bots_share_search_scrapers.png',
       fullPage: true,
@@ -27,7 +29,8 @@ describe('Video embed page', () => {
 
   it('should have rendered the simple bot accessible html page', async () => {
     await page.waitForSelector('h1');
-    await page.waitForSelector('h3');
+    await page.waitForSelector('meta');
+    await page.waitForTimeout(3000);
 
     const ogVideo = await getMetaTagContent('og:video');
     expect(ogVideo).toBe('http://localhost:5309/embed/video');
