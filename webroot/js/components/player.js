@@ -12,7 +12,7 @@ const VIDEO_SRC = {
   type: 'application/x-mpegURL',
 };
 const VIDEO_OPTIONS = {
-  autoplay: false,
+  autoplay: true,
   liveui: true,
   preload: 'auto',
   controlBar: {

@@ -38,3 +38,5 @@ backup/
 !core/data
 test/test.db
 test/automated/browser/screenshots
+
+.DS_Store
