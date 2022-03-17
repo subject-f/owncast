@@ -104,15 +104,16 @@ fi
 
 # Docker build
 # Must authenticate first: https://docs.github.com/en/packages/using-github-packages-with-your-projects-ecosystem/configuring-docker-for-use-with-github-packages#authenticating-to-github-packages
-DOCKER_IMAGE="owncast-${VERSION}"
-echo "Building Docker image ${DOCKER_IMAGE}..."
+echo "Docker image doesn't get pushed in this script."
+# DOCKER_IMAGE="owncast-${VERSION}"
+# echo "Building Docker image ${DOCKER_IMAGE}..."
 
 # Change to the root directory of the repository
 cd $(git rev-parse --show-toplevel)
 
-# Docker build
-docker build --build-arg NAME=docker --build-arg VERSION=${VERSION} --build-arg GIT_COMMIT=$GIT_COMMIT -t gabekangas/owncast:$VERSION -t gabekangas/owncast:latest -t owncast .
+# # Docker build
+# docker build --build-arg NAME=docker --build-arg VERSION=${VERSION} --build-arg GIT_COMMIT=$GIT_COMMIT -t gabekangas/owncast:$VERSION -t gabekangas/owncast:latest -t owncast .
 
-# Dockerhub
-# You must be authenticated via `docker login` with your Dockerhub credentials first.
-docker push "gabekangas/owncast:${VERSION}"
+# # Dockerhub
+# # You must be authenticated via `docker login` with your Dockerhub credentials first.
+# docker push "gabekangas/owncast:${VERSION}"
