@@ -75,7 +75,7 @@ export default class App extends Component {
       websocket: null,
       canChat: false, // all of chat functionality (panel + username)
       displayChatPanel: chatStorage === null ? true : chatStorage === 'true', // just the chat panel
-      chatInputEnabled: false, // chat input box state
+      chatInputEnabled: true, // chat input box state
       accessToken: null,
       username: getLocalStorage(KEY_USERNAME),
       isModerator: false,
@@ -436,8 +436,9 @@ export default class App extends Component {
   }
 
   disableChatInput() {
+    // Enable persistent chat
     this.setState({
-      chatInputEnabled: false,
+      chatInputEnabled: true,
     });
   }
 
