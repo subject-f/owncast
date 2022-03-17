@@ -113,12 +113,10 @@ func (s *Server) Addclient(conn *websocket.Conn, user *user.User, accessToken st
 
 	client.sendConnectedClientInfo()
 
-	if getStatus().Online {
-		if shouldSendJoinedMessages {
-			s.sendUserJoinedMessage(client)
-		}
-		s.sendWelcomeMessageToClient(client)
+	if shouldSendJoinedMessages {
+		s.sendUserJoinedMessage(client)
 	}
+	s.sendWelcomeMessageToClient(client)
 
 	// Asynchronously, optionally, fetch GeoIP data.
 	go func(client *Client) {
