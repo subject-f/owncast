@@ -55,12 +55,18 @@ require (
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.32.1 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
+	github.com/tidwall/match v1.1.1 // indirect
+	github.com/tidwall/pretty v1.2.0 // indirect
+	golang.org/x/oauth2 v0.0.0-20210514164344-f6687ab2804c // indirect
+	google.golang.org/appengine v1.6.6 // indirect
 	google.golang.org/protobuf v1.26.0 // indirect
 )
 
 require (
 	github.com/nakabonne/tstorage v0.3.5
+	github.com/ravener/discord-oauth2 v0.0.0-20210928130214-d7697a35c387
 	github.com/shirou/gopsutil/v3 v3.22.2
+	github.com/tidwall/gjson v1.14.0
 )
 
 replace github.com/go-fed/activity => github.com/owncast/activity v1.0.1-0.20211229051252-7821289d4026

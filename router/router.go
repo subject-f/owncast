@@ -25,6 +25,11 @@ func Start() error {
 	http.HandleFunc("/", controllers.IndexHandler)
 	http.HandleFunc("/recordings", controllers.IndexHandler)
 	http.HandleFunc("/schedule", controllers.IndexHandler)
+	http.HandleFunc("/authorized/", controllers.IndexHandler)
+
+	// discord oauth
+	http.HandleFunc("/api/oauth/", controllers.RedirectToDiscordOauth)
+	http.HandleFunc("/auth/callback/", controllers.HandleDiscordCallback)
 
 	// admin static files
 	http.HandleFunc("/admin/", middleware.RequireAdminAuth(admin.ServeAdmin))

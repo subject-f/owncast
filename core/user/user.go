@@ -88,6 +88,26 @@ func CreateAnonymousUser(displayName string) (*User, error) {
 	return user, nil
 }
 
+// CreateDiscordUser will create a new user with their discord username.
+func CreateDiscordUser(displayName string, accessToken string) (*User, error) {
+	id := shortid.MustGenerate()
+	displayColor := utils.GenerateRandomDisplayColor()
+
+	user := &User{
+		ID:           id,
+		AccessToken:  accessToken,
+		DisplayName:  displayName,
+		DisplayColor: displayColor,
+		CreatedAt:    time.Now(),
+	}
+
+	if err := create(user); err != nil {
+		return nil, err
+	}
+
+	return user, nil
+}
+
 // ChangeUsername will change the user associated to userID from one display name to another.
 func ChangeUsername(userID string, username string) {
 	_datastore.DbLock.Lock()
