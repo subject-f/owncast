@@ -45,8 +45,8 @@ class PlaybackMetrics {
   }
 
   trackRateLimit(headers) {
-    if (headers["ratelimit-remaining"]) {
-      this.rateLimitsTracking.push(headers["ratelimit-remaining"]);
+    if (headers['ratelimit-remaining']) {
+      this.rateLimitsTracking.push(headers['ratelimit-remaining']);
     } else {
       this.rateLimitsTracking.push(-1);
     }
@@ -87,7 +87,7 @@ class PlaybackMetrics {
         average: averageRateLimit,
         max: maxRateLimit,
         min: minRateLimit,
-      }
+      },
     };
     this.errors = 0;
     this.qualityVariantChanges = 0;

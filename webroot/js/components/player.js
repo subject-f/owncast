@@ -152,7 +152,7 @@ class OwncastPlayer {
         args[1] = (error, response, body) => {
           this.playbackMetrics.trackRateLimit(response.headers);
           cb(error, response, body);
-        }
+        };
       }
 
       return oldVjsXhrCallback(...args);
