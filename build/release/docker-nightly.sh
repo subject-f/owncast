@@ -21,10 +21,11 @@ echo "Building Docker image ${DOCKER_IMAGE}..."
 cd $(git rev-parse --show-toplevel)
 
 # Docker build
-docker build --build-arg NAME=docker --build-arg VERSION=${VERSION} --build-arg GIT_COMMIT=$GIT_COMMIT -t ghcr.io/${ORG}/${DOCKER_IMAGE}:nightly .
+docker build --build-arg NAME=docker --build-arg VERSION=${VERSION} --build-arg GIT_COMMIT=$GIT_COMMIT -t ghcr.io/${ORG}/${DOCKER_IMAGE}:nightly -t ghcr.io/${ORG}/${DOCKER_IMAGE}:${GIT_COMMIT} .
 
 # Dockerhub
 # You must be authenticated via `docker login` with your Dockerhub credentials first.
 # docker push gabekangas/owncast:nightly
 
 docker push ghcr.io/${ORG}/${DOCKER_IMAGE}:nightly
+docker push ghcr.io/${ORG}/${DOCKER_IMAGE}:${GIT_COMMIT}
