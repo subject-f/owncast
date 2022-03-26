@@ -16,12 +16,19 @@ func ReportPlaybackMetrics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	type rateLimitsTracking struct {
+		Average float64 `json:"average"`
+		Max     float64 `json:"max"`
+		Min     float64 `json:"min"`
+	}
+
 	type reportPlaybackMetricsRequest struct {
-		Bandwidth             float64 `json:"bandwidth"`
-		Latency               float64 `json:"latency"`
-		Errors                float64 `json:"errors"`
-		DownloadDuration      float64 `json:"downloadDuration"`
-		QualityVariantChanges float64 `json:"qualityVariantChanges"`
+		Bandwidth             float64            `json:"bandwidth"`
+		Latency               float64            `json:"latency"`
+		Errors                float64            `json:"errors"`
+		DownloadDuration      float64            `json:"downloadDuration"`
+		QualityVariantChanges float64            `json:"qualityVariantChanges"`
+		RateLimits            rateLimitsTracking `json:"rateLimits"`
 	}
 
 	decoder := json.NewDecoder(r.Body)
@@ -37,4 +44,6 @@ func ReportPlaybackMetrics(w http.ResponseWriter, r *http.Request) {
 	metrics.RegisterPlayerLatency(request.Latency)
 	metrics.RegisterPlayerSegmentDownloadDuration(request.DownloadDuration)
 	metrics.RegisterQualityVariantChangesCount(request.QualityVariantChanges)
+	metrics.RegisterPlayerRateLimitAvg(request.RateLimits.Average)
+	metrics.RegisterPlayerRateLimitBoundaries(request.RateLimits.Min, request.RateLimits.Max)
 }

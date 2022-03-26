@@ -13,6 +13,9 @@ var (
 	chatUserCount           prometheus.Gauge
 	currentChatMessageCount prometheus.Gauge
 	playbackErrorCount      prometheus.Gauge
+	rateLimitMax            prometheus.Gauge
+	rateLimitMin            prometheus.Gauge
+	rateLimitAvg            prometheus.Gauge
 )
 
 func setupPrometheusCollectors() {
@@ -50,6 +53,24 @@ func setupPrometheusCollectors() {
 	cpuUsage = promauto.NewGauge(prometheus.GaugeOpts{
 		Name:        "owncast_instance_cpu_usage",
 		Help:        "CPU usage as seen internally to Owncast.",
+		ConstLabels: labels,
+	})
+
+	rateLimitMax = promauto.NewGauge(prometheus.GaugeOpts{
+		Name:        "owncast_custom_player_contabo_ratelimit_max",
+		Help:        "Max rate limti header seen by clients.",
+		ConstLabels: labels,
+	})
+
+	rateLimitMin = promauto.NewGauge(prometheus.GaugeOpts{
+		Name:        "owncast_custom_player_contabo_ratelimit_min",
+		Help:        "Min rate limti header seen by clients.",
+		ConstLabels: labels,
+	})
+
+	rateLimitAvg = promauto.NewGauge(prometheus.GaugeOpts{
+		Name:        "owncast_custom_player_contabo_ratelimit_avg",
+		Help:        "Avg rate limti header seen by clients.",
 		ConstLabels: labels,
 	})
 }

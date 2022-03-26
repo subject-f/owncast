@@ -8,6 +8,7 @@ class PlaybackMetrics {
     this.segmentDownloadTime = [];
     this.bandwidthTracking = [];
     this.latencyTracking = [];
+    this.rateLimitsTracking = [];
     this.errors = 0;
     this.qualityVariantChanges = 0;
     this.isBuffering = false;
@@ -43,6 +44,14 @@ class PlaybackMetrics {
     this.latencyTracking.push(latency);
   }
 
+  trackRateLimit(headers) {
+    if (headers["ratelimit-remaining"]) {
+      this.rateLimitsTracking.push(headers["ratelimit-remaining"]);
+    } else {
+      this.rateLimitsTracking.push(-1);
+    }
+  }
+
   async send() {
     if (
       this.segmentDownloadTime.length < 4 ||
@@ -64,18 +73,28 @@ class PlaybackMetrics {
     const averageLatency = average(this.latencyTracking) / 1000;
     const roundedAverageLatency = Math.round(averageLatency * 1000) / 1000;
 
+    const averageRateLimit = average(this.rateLimitsTracking);
+    const maxRateLimit = Math.max(...this.rateLimitsTracking);
+    const minRateLimit = Math.min(...this.rateLimitsTracking);
+
     const data = {
       bandwidth: roundedAverageBandwidth,
       latency: roundedAverageLatency,
       downloadDuration: roundedAverageDownloadDuration,
       errors: errorCount + this.isBuffering ? 1 : 0,
       qualityVariantChanges: this.qualityVariantChanges,
+      rateLimits: {
+        average: averageRateLimit,
+        max: maxRateLimit,
+        min: minRateLimit,
+      }
     };
     this.errors = 0;
     this.qualityVariantChanges = 0;
     this.segmentDownloadTime = [];
     this.bandwidthTracking = [];
     this.latencyTracking = [];
+    this.rateLimitsTracking = [];
 
     const options = {
       method: 'POST',

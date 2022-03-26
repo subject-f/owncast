@@ -135,12 +135,24 @@ class OwncastPlayer {
         const start = new Date();
 
         const cb = args[1];
-        args[1] = (request, error, response) => {
+        // The order of these arguments is wrong, but it doesn't matter
+        // since we're transparently calling the cb I suppose
+        // https://docs.videojs.com/tutorial-videojs.html#xhr
+        args[1] = (error, response, body) => {
           const end = new Date();
           const delta = end.getTime() - start.getTime();
           this.playbackMetrics.trackSegmentDownloadTime(delta);
-          cb(request, error, response);
+          this.playbackMetrics.trackRateLimit(response.headers);
+          console.log(response);
+          cb(error, response, body);
         };
+      } else if (args[0].uri.match('m3u8')) {
+        const cb = args[1];
+
+        args[1] = (error, response, body) => {
+          this.playbackMetrics.trackRateLimit(response.headers);
+          cb(error, response, body);
+        }
       }
 
       return oldVjsXhrCallback(...args);

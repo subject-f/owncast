@@ -14,6 +14,8 @@ var (
 	windowedBandwidths            = []float64{}
 	windowedLatencies             = []float64{}
 	windowedDownloadDurations     = []float64{}
+	windowedRateLimitAbs          = []float64{}
+	windowedRateLimitAvg          = []float64{}
 )
 
 // RegisterPlaybackErrorCount will add to the windowed playback error count.
@@ -51,6 +53,38 @@ func RegisterPlayerSegmentDownloadDuration(seconds float64) {
 	metrics.m.Lock()
 	defer metrics.m.Unlock()
 	windowedDownloadDurations = append(windowedDownloadDurations, seconds)
+}
+
+func RegisterPlayerRateLimitBoundaries(min, max float64) {
+	metrics.m.Lock()
+	defer metrics.m.Unlock()
+	windowedRateLimitAbs = append(windowedRateLimitAbs, min, max)
+}
+
+func RegisterPlayerRateLimitAvg(avg float64) {
+	metrics.m.Lock()
+	defer metrics.m.Unlock()
+	windowedRateLimitAvg = append(windowedRateLimitAvg, avg)
+}
+
+func collectRateLimitStats() {
+	max := 0.0
+	min := 0.0
+	avg := 0.0
+
+	if len(windowedRateLimitAbs) > 0 {
+		min, max = utils.MinMax(windowedRateLimitAbs)
+		windowedRateLimitAbs = []float64{}
+	}
+
+	if len(windowedRateLimitAvg) > 0 {
+		avg = utils.Avg(windowedRateLimitAvg)
+		windowedRateLimitAvg = []float64{}
+	}
+
+	rateLimitMax.Set(max)
+	rateLimitMin.Set(min)
+	rateLimitAvg.Set(avg)
 }
 
 // collectPlaybackErrorCount will take all of the error counts each individual

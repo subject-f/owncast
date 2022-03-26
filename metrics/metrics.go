@@ -81,6 +81,7 @@ func handlePolling() {
 	collectSegmentDownloadDuration()
 	collectLowestBandwidth()
 	collectQualityVariantChanges()
+	collectRateLimitStats()
 
 	// Alerting
 	handleAlerting()
