@@ -7,32 +7,7 @@ import PlaybackMetrics from '../metrics/playback.js';
 import LatencyCompensator from './latencyCompensator.js';
 
 const VIDEO_ID = 'video';
-
-const EVENTS = [
-  'loadstart',
-  'progress',
-  'suspend',
-  'abort',
-  'error',
-  'emptied',
-  'stalled',
-  'loadedmetadata',
-  'loadeddata',
-  'canplay',
-  'canplaythrough',
-  'playing',
-  'waiting',
-  'seeking',
-  'seeked',
-  'ended',
-  'durationchange',
-  'timeupdate',
-  'play',
-  'pause',
-  'ratechange',
-  'resize',
-  'volumechange',
-];
+const LATENCY_COMPENSATION_ENABLED = 'latencyCompensatorEnabled';
 
 // Video setup
 const VIDEO_SRC = {
@@ -40,7 +15,7 @@ const VIDEO_SRC = {
   type: 'application/x-mpegURL',
 };
 const VIDEO_OPTIONS = {
-  autoplay: true,
+  autoplay: false,
   liveui: true,
   preload: 'auto',
   controlBar: {
@@ -58,6 +33,7 @@ const VIDEO_OPTIONS = {
   },
   liveTracker: {
     trackingThreshold: 0,
+    liveTolerance: 15,
   },
   sources: [VIDEO_SRC],
 };
@@ -65,49 +41,20 @@ const VIDEO_OPTIONS = {
 export const POSTER_DEFAULT = `/img/logo.png`;
 export const POSTER_THUMB = `/thumbnail.jpg`;
 
-function getCurrentlyPlayingSegment(tech, old_segment = null) {
-  var target_media = tech.vhs.playlists.media();
-  var snapshot_time = tech.currentTime();
-
-  var segment;
-  var segment_time;
-
-  // Itinerate trough available segments and get first within which snapshot_time is
-  for (var i = 0, l = target_media.segments.length; i < l; i++) {
-    // Note: segment.end may be undefined or is not properly set
-    if (snapshot_time < target_media.segments[i].end) {
-      segment = target_media.segments[i];
-      break;
-    }
-  }
-
-  // Null segment_time in case it's lower then 0.
-  if (segment) {
-    segment_time = Math.max(
-      0,
-      snapshot_time - (segment.end - segment.duration)
-    );
-    // Because early segments don't have end property
-  } else {
-    segment = target_media.segments[0];
-    segment_time = 0;
-  }
-
-  return segment;
-}
-
 class OwncastPlayer {
   constructor() {
     window.VIDEOJS_NO_DYNAMIC_STYLE = true; // style override
 
-    this.playbackMetrics = new PlaybackMetrics();
-
     this.vjsPlayer = null;
     this.latencyCompensator = null;
+    this.playbackMetrics = null;
 
     this.appPlayerReadyCallback = null;
     this.appPlayerPlayingCallback = null;
     this.appPlayerEndedCallback = null;
+
+    this.hasStartedPlayback = false;
+    this.latencyCompensatorEnabled = false;
 
     // bind all the things because safari
     this.startPlayer = this.startPlayer.bind(this);
@@ -116,47 +63,18 @@ class OwncastPlayer {
     this.handleVolume = this.handleVolume.bind(this);
     this.handleEnded = this.handleEnded.bind(this);
     this.handleError = this.handleError.bind(this);
-    this.handleWaiting = this.handleWaiting.bind(this);
-    this.handleNoLongerBuffering = this.handleNoLongerBuffering.bind(this);
-    this.addQualitySelector = this.addQualitySelector.bind(this);
+    this.addQualitySelector = this.addVideoSettingsMenu.bind(this);
+    this.addQualitySelector = this.addVideoSettingsMenu.bind(this);
+    this.toggleLatencyCompensator = this.toggleLatencyCompensator.bind(this);
+    this.startLatencyCompensator = this.startLatencyCompensator.bind(this);
+    this.stopLatencyCompensator = this.stopLatencyCompensator.bind(this);
     this.qualitySelectionMenu = null;
+    this.latencyCompensatorToggleButton = null;
   }
 
   init() {
     this.addAirplay();
-    this.addQualitySelector();
-
-    // Keep a reference of the standard vjs xhr function.
-    const oldVjsXhrCallback = videojs.xhr;
-
-    // Override the xhr function to track segment download time.
-    videojs.Vhs.xhr = (...args) => {
-      if (args[0].uri.match('.ts')) {
-        const start = new Date();
-
-        const cb = args[1];
-        // The order of these arguments is wrong, but it doesn't matter
-        // since we're transparently calling the cb I suppose
-        // https://docs.videojs.com/tutorial-videojs.html#xhr
-        args[1] = (error, response, body) => {
-          const end = new Date();
-          const delta = end.getTime() - start.getTime();
-          this.playbackMetrics.trackSegmentDownloadTime(delta);
-          this.playbackMetrics.trackRateLimit(response.headers);
-          console.log(response);
-          cb(error, response, body);
-        };
-      } else if (args[0].uri.match('m3u8')) {
-        const cb = args[1];
-
-        args[1] = (error, response, body) => {
-          this.playbackMetrics.trackRateLimit(response.headers);
-          cb(error, response, body);
-        };
-      }
-
-      return oldVjsXhrCallback(...args);
-    };
+    this.addVideoSettingsMenu();
 
     // Add a cachebuster param to playlist URLs.
     videojs.Vhs.xhr.beforeRequest = (options) => {
@@ -193,37 +111,59 @@ class OwncastPlayer {
       console.warn(err);
     }
     this.vjsPlayer.src(source);
-    // this.vjsPlayer.play();
+  }
+
+  setupPlaybackMetrics() {
+    this.playbackMetrics = new PlaybackMetrics(this.vjsPlayer, videojs);
+  }
+
+  setupLatencyCompensator() {
+    const tech = this.vjsPlayer.tech({ IWillNotUseThisInPlugins: true });
+
+    // VHS is required.
+    if (!tech || !tech.vhs) {
+      return;
+    }
+
+    const latencyCompensatorEnabledSaved = getLocalStorage(
+      LATENCY_COMPENSATION_ENABLED
+    );
+
+    if (latencyCompensatorEnabledSaved === 'true' && tech && tech.vhs) {
+      this.startLatencyCompensator();
+    } else {
+      this.stopLatencyCompensator();
+    }
+  }
+
+  startLatencyCompensator() {
+    this.latencyCompensator = new LatencyCompensator(this.vjsPlayer);
+    this.latencyCompensator.enable();
+    this.latencyCompensatorEnabled = true;
+    this.setLatencyCompensatorItemTitle('disable minimized latency');
+  }
+
+  stopLatencyCompensator() {
+    if (this.latencyCompensator) {
+      this.latencyCompensator.disable();
+    }
+    this.LatencyCompensator = null;
+    this.latencyCompensatorEnabled = false;
+    this.setLatencyCompensatorItemTitle(
+      '<span style="font-size: 0.8em">minimize latency (experimental)</span>'
+    );
   }
 
   handleReady() {
+    console.log('handleReady');
     this.vjsPlayer.on('error', this.handleError);
     this.vjsPlayer.on('playing', this.handlePlaying);
-    this.vjsPlayer.on('waiting', this.handleWaiting);
-    this.vjsPlayer.on('canplaythrough', this.handleNoLongerBuffering);
     this.vjsPlayer.on('volumechange', this.handleVolume);
     this.vjsPlayer.on('ended', this.handleEnded);
 
-    this.vjsPlayer.on('ready', () => {
-      const tech = this.vjsPlayer.tech({ IWillNotUseThisInPlugins: true });
-      tech.on('usage', (e) => {
-        if (e.name === 'vhs-unknown-waiting') {
-          this.playbackMetrics.incrementErrorCount(1);
-        }
-
-        if (e.name === 'vhs-rendition-change-abr') {
-          // Quality variant has changed
-          this.playbackMetrics.incrementQualityVariantChanges();
-        }
-      });
-
-      // Variant changed
-      const trackElements = this.vjsPlayer.textTracks();
-      trackElements.addEventListener('cuechange', function (c) {
-        console.log(c);
-      });
-
-      this.latencyCompensator = new LatencyCompensator(this.vjsPlayer);
+    this.vjsPlayer.on('loadeddata', () => {
+      this.setupPlaybackMetrics();
+      this.setupLatencyCompensator();
     });
 
     if (this.appPlayerReadyCallback) {
@@ -242,34 +182,24 @@ class OwncastPlayer {
   }
 
   handlePlaying() {
-    this.log('on Playing');
     if (this.appPlayerPlayingCallback) {
       // start polling
       this.appPlayerPlayingCallback();
     }
 
-    setInterval(() => {
-      const tech = this.vjsPlayer.tech({ IWillNotUseThisInPlugins: true });
-      const bandwidth = tech.vhs.systemBandwidth;
-      this.playbackMetrics.trackBandwidth(bandwidth);
+    if (this.latencyCompensator && !this.hasStartedPlayback) {
+      this.latencyCompensator.enable();
+    }
 
-      try {
-        const segment = getCurrentlyPlayingSegment(tech);
-        const segmentTime = segment.dateTimeObject.getTime();
-        const now = new Date().getTime();
-        const latency = now - segmentTime;
-        this.playbackMetrics.trackLatency(latency);
-      } catch (err) {
-        console.warn(err);
-      }
-    }, 5000);
+    this.hasStartedPlayback = true;
   }
 
   handleEnded() {
-    this.log('on Ended');
     if (this.appPlayerEndedCallback) {
       this.appPlayerEndedCallback();
     }
+
+    this.stopLatencyCompensator();
   }
 
   handleError(e) {
@@ -277,24 +207,34 @@ class OwncastPlayer {
     if (this.appPlayerEndedCallback) {
       this.appPlayerEndedCallback();
     }
-
-    this.playbackMetrics.incrementErrorCount(1);
   }
 
-  handleWaiting(e) {
-    // this.playbackMetrics.incrementErrorCount(1);
-    this.playbackMetrics.isBuffering = true;
+  toggleLatencyCompensator() {
+    if (this.latencyCompensatorEnabled) {
+      this.stopLatencyCompensator();
+      setLocalStorage(LATENCY_COMPENSATION_ENABLED, false);
+    } else {
+      this.startLatencyCompensator();
+      setLocalStorage(LATENCY_COMPENSATION_ENABLED, true);
+    }
   }
 
-  handleNoLongerBuffering() {
-    this.playbackMetrics.isBuffering = false;
+  setLatencyCompensatorItemTitle(title) {
+    const item = document.querySelector(
+      '.latency-toggle-item > .vjs-menu-item-text'
+    );
+    if (!item) {
+      return;
+    }
+
+    item.innerHTML = title;
   }
 
   log(message) {
     // console.log(`>>> Player: ${message}`);
   }
 
-  async addQualitySelector() {
+  async addVideoSettingsMenu() {
     if (this.qualityMenuButton) {
       player.controlBar.removeChild(this.qualityMenuButton);
     }
@@ -313,6 +253,20 @@ class OwncastPlayer {
 
         var MenuItem = videojs.getComponent('MenuItem');
         var MenuButtonClass = videojs.getComponent('MenuButton');
+
+        const lowLatencyItem = new MenuItem(player, {
+          selectable: true,
+        });
+        lowLatencyItem.setAttribute('class', 'latency-toggle-item');
+        lowLatencyItem.on('click', () => {
+          this.toggleLatencyCompensator();
+        });
+        this.latencyCompensatorToggleButton = lowLatencyItem;
+
+        const separator = new MenuSeparator(player, {
+          selectable: false,
+        });
+
         var MenuButton = videojs.extend(MenuButtonClass, {
           // The `init()` method will also work for constructor logic here, but it is
           // deprecated. If you provide an `init()` method, it will override the
@@ -322,6 +276,8 @@ class OwncastPlayer {
           },
 
           createItems: function () {
+            const tech = this.player_.tech({ IWillNotUseThisInPlugins: true });
+
             const defaultAutoItem = new MenuItem(player, {
               selectable: true,
               label: 'Auto',
@@ -336,12 +292,9 @@ class OwncastPlayer {
               // Quality selected
               newMenuItem.on('click', function () {
                 // Only enable this single, selected representation.
-                player
-                  .tech({ IWillNotUseThisInPlugins: true })
-                  .vhs.representations()
-                  .forEach(function (rep, index) {
-                    rep.enabled(index === item.index);
-                  });
+                tech.vhs.representations().forEach(function (rep, index) {
+                  rep.enabled(index === item.index);
+                });
                 newMenuItem.selected(false);
               });
 
@@ -350,21 +303,31 @@ class OwncastPlayer {
 
             defaultAutoItem.on('click', function () {
               // Re-enable all representations.
-              player
-                .tech({ IWillNotUseThisInPlugins: true })
-                .vhs.representations()
-                .forEach(function (rep, index) {
-                  rep.enabled(true);
-                });
+              tech.vhs.representations().forEach(function (rep, index) {
+                rep.enabled(true);
+              });
               defaultAutoItem.selected(false);
             });
+
+            const supportsLatencyCompensator = !!tech && !!tech.vhs;
+
+            // Only show the quality selector if there is more than one option.
+            if (qualities.length < 2 && supportsLatencyCompensator) {
+              return [lowLatencyItem];
+            } else if (qualities.length > 1 && supportsLatencyCompensator) {
+              return [defaultAutoItem, ...items, separator, lowLatencyItem];
+            } else if (!supportsLatencyCompensator && qualities.length == 1) {
+              return [];
+            }
 
             return [defaultAutoItem, ...items];
           },
         });
 
-        // Only show the quality selector if there is more than one option.
-        if (qualities.length < 2) {
+        // If none of the settings in this menu are applicable then don't show it.
+        const tech = player.tech({ IWillNotUseThisInPlugins: true });
+
+        if (qualities.length < 2 && (!tech || !tech.vhs)) {
           return;
         }
 
@@ -376,6 +339,7 @@ class OwncastPlayer {
           player.controlBar.children_.length - 2
         );
         this.qualityMenuButton = menuButton;
+        this.latencyCompensatorToggleButton = lowLatencyItem;
       }.bind(this)
     );
   }
@@ -408,3 +372,20 @@ class OwncastPlayer {
 }
 
 export { OwncastPlayer };
+
+const VjsMenuItem = videojs.getComponent('MenuItem');
+
+export default class MenuSeparator extends VjsMenuItem {
+  constructor(player, options) {
+    super(player, options);
+  }
+
+  createEl(tag = 'button', props = {}, attributes = {}) {
+    let el = super.createEl(tag, props, attributes);
+    el.innerHTML =
+      '<hr style="opacity: 0.3; margin-left: 10px; margin-right: 10px;" />';
+    return el;
+  }
+}
+
+VjsMenuItem.registerComponent('MenuSeparator', MenuSeparator);

@@ -4,87 +4,71 @@ import (
 	"math"
 	"time"
 
+	"github.com/owncast/owncast/core"
 	"github.com/owncast/owncast/utils"
 )
 
 // Playback error counts reported since the last time we collected metrics.
 var (
-	windowedErrorCounts           = []float64{}
-	windowedQualityVariantChanges = []float64{}
-	windowedBandwidths            = []float64{}
-	windowedLatencies             = []float64{}
-	windowedDownloadDurations     = []float64{}
-	windowedRateLimitAbs          = []float64{}
-	windowedRateLimitAvg          = []float64{}
+	windowedErrorCounts           = map[string]float64{}
+	windowedQualityVariantChanges = map[string]float64{}
+	windowedBandwidths            = map[string]float64{}
+	windowedLatencies             = map[string]float64{}
+	windowedDownloadDurations     = map[string]float64{}
 )
 
-// RegisterPlaybackErrorCount will add to the windowed playback error count.
-func RegisterPlaybackErrorCount(count float64) {
+func handlePlaybackPolling() {
 	metrics.m.Lock()
 	defer metrics.m.Unlock()
-	windowedErrorCounts = append(windowedErrorCounts, count)
+
+	// Make sure this is fired first before all the values get cleared below.
+	if _getStatus().Online {
+		generateStreamHealthOverview()
+	}
+
+	collectPlaybackErrorCount()
+	collectLatencyValues()
+	collectSegmentDownloadDuration()
+	collectLowestBandwidth()
+	collectQualityVariantChanges()
+}
+
+// RegisterPlaybackErrorCount will add to the windowed playback error count.
+func RegisterPlaybackErrorCount(clientID string, count float64) {
+	metrics.m.Lock()
+	defer metrics.m.Unlock()
+	windowedErrorCounts[clientID] = count
+	// windowedErrorCounts = append(windowedErrorCounts, count)
 }
 
 // RegisterQualityVariantChangesCount will add to the windowed quality variant
 // change count.
-func RegisterQualityVariantChangesCount(count float64) {
+func RegisterQualityVariantChangesCount(clientID string, count float64) {
 	metrics.m.Lock()
 	defer metrics.m.Unlock()
-	windowedQualityVariantChanges = append(windowedQualityVariantChanges, count)
+	windowedQualityVariantChanges[clientID] = count
 }
 
 // RegisterPlayerBandwidth will add to the windowed playback bandwidth.
-func RegisterPlayerBandwidth(kbps float64) {
+func RegisterPlayerBandwidth(clientID string, kbps float64) {
 	metrics.m.Lock()
 	defer metrics.m.Unlock()
-	windowedBandwidths = append(windowedBandwidths, kbps)
+	windowedBandwidths[clientID] = kbps
 }
 
 // RegisterPlayerLatency will add to the windowed player latency values.
-func RegisterPlayerLatency(seconds float64) {
+func RegisterPlayerLatency(clientID string, seconds float64) {
 	metrics.m.Lock()
 	defer metrics.m.Unlock()
-	windowedLatencies = append(windowedLatencies, seconds)
+	windowedLatencies[clientID] = seconds
 }
 
 // RegisterPlayerSegmentDownloadDuration will add to the windowed player segment
 // download duration values.
-func RegisterPlayerSegmentDownloadDuration(seconds float64) {
+func RegisterPlayerSegmentDownloadDuration(clientID string, seconds float64) {
 	metrics.m.Lock()
 	defer metrics.m.Unlock()
-	windowedDownloadDurations = append(windowedDownloadDurations, seconds)
-}
-
-func RegisterPlayerRateLimitBoundaries(min, max float64) {
-	metrics.m.Lock()
-	defer metrics.m.Unlock()
-	windowedRateLimitAbs = append(windowedRateLimitAbs, min, max)
-}
-
-func RegisterPlayerRateLimitAvg(avg float64) {
-	metrics.m.Lock()
-	defer metrics.m.Unlock()
-	windowedRateLimitAvg = append(windowedRateLimitAvg, avg)
-}
-
-func collectRateLimitStats() {
-	max := 0.0
-	min := 0.0
-	avg := 0.0
-
-	if len(windowedRateLimitAbs) > 0 {
-		min, max = utils.MinMax(windowedRateLimitAbs)
-		windowedRateLimitAbs = []float64{}
-	}
-
-	if len(windowedRateLimitAvg) > 0 {
-		avg = utils.Avg(windowedRateLimitAvg)
-		windowedRateLimitAvg = []float64{}
-	}
-
-	rateLimitMax.Set(max)
-	rateLimitMin.Set(min)
-	rateLimitAvg.Set(avg)
+	windowedDownloadDurations[clientID] = seconds
 }
 
 // collectPlaybackErrorCount will take all of the error counts each individual
@@ -92,8 +76,9 @@ func collectRateLimitStats() {
 // one person with bad connectivity doesn't make it look like everything is
 // horrible for everyone.
 func collectPlaybackErrorCount() {
-	count := utils.Sum(windowedErrorCounts)
-	windowedErrorCounts = []float64{}
+	valueSlice := utils.Float64MapToSlice(windowedErrorCounts)
+	count := utils.Sum(valueSlice)
+	windowedErrorCounts = map[string]float64{}
 
 	metrics.errorCount = append(metrics.errorCount, TimestampedValue{
 		Time:  time.Now(),
@@ -113,10 +98,12 @@ func collectSegmentDownloadDuration() {
 	max := 0.0
 	min := 0.0
 
-	if len(windowedDownloadDurations) > 0 {
-		median = utils.Median(windowedDownloadDurations)
-		min, max = utils.MinMax(windowedDownloadDurations)
-		windowedDownloadDurations = []float64{}
+	valueSlice := utils.Float64MapToSlice(windowedDownloadDurations)
+
+	if len(valueSlice) > 0 {
+		median = utils.Median(valueSlice)
+		min, max = utils.MinMax(valueSlice)
+		windowedDownloadDurations = map[string]float64{}
 	}
 
 	metrics.medianSegmentDownloadSeconds = append(metrics.medianSegmentDownloadSeconds, TimestampedValue{
@@ -172,10 +159,13 @@ func collectLatencyValues() {
 	min := 0.0
 	max := 0.0
 
-	if len(windowedLatencies) > 0 {
-		median = utils.Median(windowedLatencies)
-		min, max = utils.MinMax(windowedLatencies)
-		windowedLatencies = []float64{}
+	valueSlice := utils.Float64MapToSlice(windowedLatencies)
+	windowedLatencies = map[string]float64{}
+
+	if len(valueSlice) > 0 {
+		median = utils.Median(valueSlice)
+		min, max = utils.MinMax(valueSlice)
+		windowedLatencies = map[string]float64{}
 	}
 
 	metrics.medianLatency = append(metrics.medianLatency, TimestampedValue{
@@ -241,12 +231,14 @@ func collectLowestBandwidth() {
 	median := 0.0
 	max := 0.0
 
+	valueSlice := utils.Float64MapToSlice(windowedBandwidths)
+
 	if len(windowedBandwidths) > 0 {
-		min, max = utils.MinMax(windowedBandwidths)
+		min, max = utils.MinMax(valueSlice)
 		min = math.Round(min)
 		max = math.Round(max)
-		median = utils.Median(windowedBandwidths)
-		windowedBandwidths = []float64{}
+		median = utils.Median(valueSlice)
+		windowedBandwidths = map[string]float64{}
 	}
 
 	metrics.lowestBitrate = append(metrics.lowestBitrate, TimestampedValue{
@@ -320,8 +312,9 @@ func GetMaxDownloadRateOverTime() []TimestampedValue {
 }
 
 func collectQualityVariantChanges() {
-	count := utils.Sum(windowedQualityVariantChanges)
-	windowedQualityVariantChanges = []float64{}
+	valueSlice := utils.Float64MapToSlice(windowedQualityVariantChanges)
+	count := utils.Sum(valueSlice)
+	windowedQualityVariantChanges = map[string]float64{}
 
 	metrics.qualityVariantChanges = append(metrics.qualityVariantChanges, TimestampedValue{
 		Time:  time.Now(),
@@ -333,4 +326,12 @@ func collectQualityVariantChanges() {
 // changes.
 func GetQualityVariantChangesOverTime() []TimestampedValue {
 	return metrics.qualityVariantChanges
+}
+
+// GetPlaybackMetricsRepresentation returns what percentage of all known players
+// the metrics represent.
+func GetPlaybackMetricsRepresentation() int {
+	totalPlayerCount := len(core.GetActiveViewers())
+	representation := utils.IntPercentage(len(windowedBandwidths), totalPlayerCount)
+	return representation
 }

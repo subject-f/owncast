@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/owncast/owncast/metrics"
+	"github.com/owncast/owncast/utils"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -16,19 +17,12 @@ func ReportPlaybackMetrics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	type rateLimitsTracking struct {
-		Average float64 `json:"average"`
-		Max     float64 `json:"max"`
-		Min     float64 `json:"min"`
-	}
-
 	type reportPlaybackMetricsRequest struct {
-		Bandwidth             float64            `json:"bandwidth"`
-		Latency               float64            `json:"latency"`
-		Errors                float64            `json:"errors"`
-		DownloadDuration      float64            `json:"downloadDuration"`
-		QualityVariantChanges float64            `json:"qualityVariantChanges"`
-		RateLimits            rateLimitsTracking `json:"rateLimits"`
+		Bandwidth             float64 `json:"bandwidth"`
+		Latency               float64 `json:"latency"`
+		Errors                float64 `json:"errors"`
+		DownloadDuration      float64 `json:"downloadDuration"`
+		QualityVariantChanges float64 `json:"qualityVariantChanges"`
 	}
 
 	decoder := json.NewDecoder(r.Body)
@@ -39,11 +33,20 @@ func ReportPlaybackMetrics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	metrics.RegisterPlaybackErrorCount(request.Errors)
-	metrics.RegisterPlayerBandwidth(request.Bandwidth)
-	metrics.RegisterPlayerLatency(request.Latency)
-	metrics.RegisterPlayerSegmentDownloadDuration(request.DownloadDuration)
-	metrics.RegisterQualityVariantChangesCount(request.QualityVariantChanges)
-	metrics.RegisterPlayerRateLimitAvg(request.RateLimits.Average)
-	metrics.RegisterPlayerRateLimitBoundaries(request.RateLimits.Min, request.RateLimits.Max)
+	clientID := utils.GenerateClientIDFromRequest(r)
+
+	metrics.RegisterPlaybackErrorCount(clientID, request.Errors)
+	if request.Bandwidth != 0.0 {
+		metrics.RegisterPlayerBandwidth(clientID, request.Bandwidth)
+	}
+
+	if request.Latency != 0.0 {
+		metrics.RegisterPlayerLatency(clientID, request.Latency)
+	}
+
+	if request.DownloadDuration != 0.0 {
+		metrics.RegisterPlayerSegmentDownloadDuration(clientID, request.DownloadDuration)
+	}
+
+	metrics.RegisterQualityVariantChangesCount(clientID, request.QualityVariantChanges)
 }

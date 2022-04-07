@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/mssola/user_agent"
 	log "github.com/sirupsen/logrus"
@@ -317,7 +318,7 @@ func FindInSlice(slice []string, val string) (int, bool) {
 	return -1, false
 }
 
-// StringSliceToMap is a convinience function to convert a slice of strings into
+// StringSliceToMap is a convenience function to convert a slice of strings into
 // a map using the string as the key.
 func StringSliceToMap(stringSlice []string) map[string]interface{} {
 	stringMap := map[string]interface{}{}
@@ -327,6 +328,17 @@ func StringSliceToMap(stringSlice []string) map[string]interface{} {
 	}
 
 	return stringMap
+}
+
+// Float64MapToSlice is a convenience function to convert a map of floats into.
+func Float64MapToSlice(float64Map map[string]float64) []float64 {
+	float64Slice := []float64{}
+
+	for _, val := range float64Map {
+		float64Slice = append(float64Slice, val)
+	}
+
+	return float64Slice
 }
 
 // StringMapKeys returns a slice of string keys from a map.
@@ -365,4 +377,18 @@ func GetHostnameFromURLString(s string) string {
 func GetHashtagsFromText(text string) []string {
 	re := regexp.MustCompile(`#[a-zA-Z0-9_]+`)
 	return re.FindAllString(text, -1)
+}
+
+// ShuffleStringSlice will shuffle a slice of strings.
+func ShuffleStringSlice(s []string) []string {
+	rand.Seed(time.Now().UnixNano())
+	rand.Shuffle(len(s), func(i, j int) {
+		s[i], s[j] = s[j], s[i]
+	})
+	return s
+}
+
+// IntPercentage returns  an int percentage of a number.
+func IntPercentage(x, total int) int {
+	return int(float64(x) / float64(total) * 100)
 }

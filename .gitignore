@@ -38,5 +38,9 @@ backup/
 !core/data
 test/test.db
 test/automated/browser/screenshots
+<<<<<<< HEAD
 
 .DS_Store
+=======
+lefthook.yml
+>>>>>>> upstream/develop
