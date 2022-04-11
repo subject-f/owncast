@@ -4,7 +4,7 @@ go 1.17
 
 require (
 	github.com/amalfra/etag v1.0.0
-	github.com/aws/aws-sdk-go v1.43.31
+	github.com/aws/aws-sdk-go v1.43.36
 	github.com/go-fed/activity v1.0.1-0.20210803212804-d866ba75dd0f
 	github.com/go-fed/httpsig v1.1.0
 	github.com/go-ole/go-ole v1.2.6 // indirect
@@ -31,11 +31,11 @@ require (
 	github.com/lestrrat-go/strftime v1.0.4 // indirect
 	github.com/mvdan/xurls v1.1.0 // indirect
 	github.com/pkg/errors v0.9.1
-	github.com/tklauser/go-sysconf v0.3.9 // indirect
-	github.com/tklauser/numcpus v0.3.0 // indirect
+	github.com/tklauser/go-sysconf v0.3.10 // indirect
+	github.com/tklauser/numcpus v0.4.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
 	golang.org/x/crypto v0.0.0-20211215153901-e495a2d5b3d3 // indirect
-	golang.org/x/net v0.0.0-20220403103023-749bd193bc2b
+	golang.org/x/net v0.0.0-20220407224826-aac1ed45d8e3
 	golang.org/x/sys v0.0.0-20220325203850-36772127a21f // indirect
 )
 
@@ -57,7 +57,7 @@ require (
 
 require (
 	github.com/nakabonne/tstorage v0.3.5
-	github.com/shirou/gopsutil/v3 v3.22.2
+	github.com/shirou/gopsutil/v3 v3.22.3
 )
 
 require github.com/SherClockHolmes/webpush-go v1.2.0
