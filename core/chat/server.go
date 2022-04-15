@@ -229,8 +229,8 @@ func (s *Server) Broadcast(payload events.EventPayload) error {
 		return err
 	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 
 	for _, client := range s.clients {
 		if client == nil {
@@ -240,8 +240,7 @@ func (s *Server) Broadcast(payload events.EventPayload) error {
 		select {
 		case client.send <- data:
 		default:
-			client.close()
-			delete(s.clients, client.id)
+			go client.close()
 		}
 	}
 
