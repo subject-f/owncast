@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -30,6 +31,7 @@ var (
 	channelId       string
 	_discordClient  *discordgo.Session
 	_discordChannel = make(chan events.UserMessageEvent, CHANNEL_BUFFER_SIZE)
+	re              = regexp.MustCompile(`(?:<img.*?alt=")(.*?)(?:".*?>)`)
 )
 
 type DiscordMessage struct {
@@ -124,7 +126,9 @@ func messageSend() {
 
 		if err == nil && len(buffer) > 0 {
 			_, err := _discordClient.ChannelMessageSend(channelId, strings.Join(buffer, "\n"))
-			log.Infoln(err)
+			if err != nil {
+				log.Warnln("Failed to relay messages to discord", err)
+			}
 		}
 
 		buffer = nil
@@ -135,7 +139,7 @@ func messageSend() {
 		select {
 		case message := <-_discordChannel:
 			lastMessageTime = time.Now()
-			messageString := fmt.Sprintf("**%v:** %v", message.User.DisplayName, message.Body)
+			messageString := parseString(fmt.Sprintf("**%v:** %v", message.User.DisplayName, message.Body))
 
 			if charCount+len(messageString) > MAX_CHAR_COUNT {
 				flushBuffer()
@@ -153,4 +157,8 @@ func messageSend() {
 		}
 
 	}
+}
+
+func parseString(input string) string {
+	return re.ReplaceAllString(input, `$1`)
 }
