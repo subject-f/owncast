@@ -70,6 +70,7 @@ func messageReceive(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 		if err != nil {
 			log.Warnln("Failed to check permissions for the user.", err)
+			return
 		}
 
 		if perms&discordgo.PermissionManageMessages != discordgo.PermissionManageMessages {
@@ -121,8 +122,9 @@ func messageSend() {
 	flushBuffer := func() {
 		_, err := _discordClient.State.Channel(channelId)
 
-		if err != nil && len(buffer) > 0 {
-			_discordClient.ChannelMessageSend(channelId, strings.Join(buffer, "\n"))
+		if err == nil && len(buffer) > 0 {
+			_, err := _discordClient.ChannelMessageSend(channelId, strings.Join(buffer, "\n"))
+			log.Infoln(err)
 		}
 
 		buffer = nil
