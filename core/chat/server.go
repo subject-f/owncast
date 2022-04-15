@@ -329,14 +329,16 @@ func SendActionToUser(userID string, text string) error {
 }
 
 func (s *Server) eventReceived(event chatClientEvent) {
-	c := event.client
-	u := c.User
+	if event.client != nil {
+		c := event.client
+		u := c.User
 
-	// If established chat user only mode is enabled and the user is not old
-	// enough then reject this event and send them an informative message.
-	if u != nil && data.GetChatEstbalishedUsersOnlyMode() && time.Since(event.client.User.CreatedAt) < config.GetDefaults().ChatEstablishedUserModeTimeDuration && !u.IsModerator() {
-		s.sendActionToClient(c, "You have not been an established chat participant long enough to take part in chat. Please enjoy the stream and try again later.")
-		return
+		// If established chat user only mode is enabled and the user is not old
+		// enough then reject this event and send them an informative message.
+		if u != nil && data.GetChatEstbalishedUsersOnlyMode() && time.Since(event.client.User.CreatedAt) < config.GetDefaults().ChatEstablishedUserModeTimeDuration && !u.IsModerator() {
+			s.sendActionToClient(c, "You have not been an established chat participant long enough to take part in chat. Please enjoy the stream and try again later.")
+			return
+		}
 	}
 
 	var typecheck map[string]interface{}
@@ -349,6 +351,9 @@ func (s *Server) eventReceived(event chatClientEvent) {
 	switch eventType {
 	case events.MessageSent:
 		s.userMessageSent(event)
+
+	case events.DiscordMessageSent:
+		s.discordMessageSent(event)
 
 	case events.UserNameChanged:
 		s.userNameChanged(event)
