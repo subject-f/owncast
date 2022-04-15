@@ -21,8 +21,9 @@ const (
 	CHANNEL_BUFFER_SIZE   = 500
 	MAX_CHAR_COUNT        = 2000
 
-	DEFAULT_COLOR   = 0
-	DISCORD_COMMAND = "!bind"
+	DEFAULT_COLOR          = 0
+	DISCORD_BIND_COMMAND   = "!bind"
+	DISCORD_UNBIND_COMMAND = "!unbind"
 )
 
 var (
@@ -64,19 +65,26 @@ func messageReceive(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	if m.Content == DISCORD_COMMAND {
+	if m.Content == DISCORD_BIND_COMMAND || m.Content == DISCORD_UNBIND_COMMAND {
 		perms, err := s.UserChannelPermissions(m.Author.ID, m.ChannelID)
 
 		if err != nil {
 			log.Warnln("Failed to check permissions for the user.", err)
 		}
 
-		if perms&discordgo.PermissionManageMessages == discordgo.PermissionManageMessages {
+		if perms&discordgo.PermissionManageMessages != discordgo.PermissionManageMessages {
+			s.ChannelMessageSend(m.ChannelID, "You don't have permissions to do that.")
+		}
+
+		if m.Content == DISCORD_BIND_COMMAND {
 			s.ChannelMessageSend(m.ChannelID, "Current channel has been bound to Owncast chat.")
 			channelId = m.ChannelID
 			return
-		} else {
-			s.ChannelMessageSend(m.ChannelID, "You don't have permissions to do that.")
+		}
+
+		if m.Content == DISCORD_UNBIND_COMMAND {
+			s.ChannelMessageSend(m.ChannelID, "Owncast unbound.")
+			channelId = 0
 			return
 		}
 	}
