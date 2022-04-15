@@ -74,6 +74,7 @@ func messageReceive(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 		if perms&discordgo.PermissionManageMessages != discordgo.PermissionManageMessages {
 			s.ChannelMessageSend(m.ChannelID, "You don't have permissions to do that.")
+			return
 		}
 
 		if m.Content == DISCORD_BIND_COMMAND {
