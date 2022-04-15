@@ -98,6 +98,9 @@ func (s *Server) userMessageSent(eventData chatClientEvent) {
 		return
 	}
 
+	// Send chat message back to Discord
+	_discordChannel <- event
+
 	// Send chat message sent webhook
 	webhooks.SendChatEvent(&event)
 	chatMessagesSentCounter.Inc()
