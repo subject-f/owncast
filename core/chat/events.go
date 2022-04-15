@@ -102,7 +102,7 @@ func (s *Server) userMessageSent(eventData chatClientEvent) {
 	webhooks.SendChatEvent(&event)
 	chatMessagesSentCounter.Inc()
 
-	SaveUserMessage(event)
+	// SaveUserMessage(event)
 	eventData.client.MessageCount++
 	_lastSeenCache[event.User.ID] = time.Now()
 }
