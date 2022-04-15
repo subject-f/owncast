@@ -42,7 +42,7 @@ type DiscordMessage struct {
 func init() {
 	_discordClient, _ = discordgo.New("Bot " + os.Getenv(DISCORD_TOKEN_ENV_VAR))
 
-	_discordClient.Identify.Intents = discordgo.IntentsGuildMessages
+	_discordClient.Identify.Intents = discordgo.IntentsAll
 
 	log.Infoln("Attempting to start Discord listener.")
 
@@ -65,9 +65,20 @@ func messageReceive(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	if m.Content == DISCORD_COMMAND {
-		s.ChannelMessageSend(m.ChannelID, "Current channel has been bound to Owncast chat.")
-		channelId = m.ChannelID
-		return
+		perms, err := s.UserChannelPermissions(m.Author.ID, m.ChannelID)
+
+		if err != nil {
+			log.Warnln("Failed to check permissions for the user.", err)
+		}
+
+		if perms&discordgo.PermissionManageMessages == discordgo.PermissionManageMessages {
+			s.ChannelMessageSend(m.ChannelID, "Current channel has been bound to Owncast chat.")
+			channelId = m.ChannelID
+			return
+		} else {
+			s.ChannelMessageSend(m.ChannelID, "You don't have permissions to do that.")
+			return
+		}
 	}
 
 	if m.ChannelID == channelId {
@@ -102,7 +113,6 @@ func messageSend() {
 		_, err := _discordClient.State.Channel(channelId)
 
 		if err != nil && len(buffer) > 0 {
-			log.Debugf("Flushing buffer to discord with %v elements.", len(buffer))
 			_discordClient.ChannelMessageSend(channelId, strings.Join(buffer, "\n"))
 		}
 
