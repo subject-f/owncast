@@ -84,7 +84,7 @@ func messageReceive(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 		if m.Content == DISCORD_UNBIND_COMMAND {
 			s.ChannelMessageSend(m.ChannelID, "Owncast unbound.")
-			channelId = 0
+			channelId = "0"
 			return
 		}
 	}
