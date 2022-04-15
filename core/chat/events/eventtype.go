@@ -6,6 +6,8 @@ type EventType = string
 const (
 	// MessageSent is the event sent when a chat event takes place.
 	MessageSent EventType = "CHAT"
+	// Discord message sent, should be ephemeral
+	DiscordMessageSent EventType = "DISCORD_CHAT"
 	// UserJoined is the event sent when a chat user join action takes place.
 	UserJoined EventType = "USER_JOINED"
 	// UserNameChanged is the event sent when a chat username change takes place.

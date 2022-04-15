@@ -98,11 +98,50 @@ func (s *Server) userMessageSent(eventData chatClientEvent) {
 		return
 	}
 
+	// Send chat message back to Discord
+	_discordChannel <- event
+
 	// Send chat message sent webhook
 	webhooks.SendChatEvent(&event)
 	chatMessagesSentCounter.Inc()
 
-	SaveUserMessage(event)
+	// SaveUserMessage(event)
 	eventData.client.MessageCount++
 	_lastSeenCache[event.User.ID] = time.Now()
+}
+
+func (s *Server) discordMessageSent(eventData chatClientEvent) {
+	var event events.UserMessageEvent
+	if err := json.Unmarshal(eventData.data, &event); err != nil {
+		log.Errorln("error unmarshalling to UserMessageEvent", err)
+		return
+	}
+
+	// Second layer of the message event
+	var discordMessage DiscordMessage
+	if err := json.Unmarshal(eventData.data, &discordMessage); err != nil {
+		log.Errorln("error unmarshalling to DiscordMessage", err)
+		return
+	}
+
+	event.SetDefaults()
+	event.ClientID = 0
+
+	// Ignore empty messages
+	if event.Empty() {
+		return
+	}
+
+	event.User = &user.User{
+		DisplayName:  discordMessage.Username + "#" + discordMessage.Discriminator,
+		DisplayColor: discordMessage.Color,
+	}
+
+	payload := event.GetBroadcastPayload()
+	if err := s.Broadcast(payload); err != nil {
+		log.Errorln("error broadcasting UserMessageEvent payload", err)
+		return
+	}
+
+	chatMessagesSentCounter.Inc()
 }
