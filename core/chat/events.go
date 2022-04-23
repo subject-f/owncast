@@ -3,7 +3,6 @@ package chat
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/owncast/owncast/core/chat/events"
@@ -23,14 +22,12 @@ func (s *Server) userNameChanged(eventData chatClientEvent) {
 	proposedUsername := receivedEvent.NewName
 
 	// Check if name is on the blocklist
-	blocklist := data.GetForbiddenUsernameList()
+	blocklist := data.GetForbiddenUsernameRegexList()
 
-	for _, blockedName := range blocklist {
-		normalizedName := strings.TrimSpace(blockedName)
-		normalizedName = strings.ToLower(normalizedName)
-		if strings.Contains(normalizedName, proposedUsername) {
+	for _, blockedRegex := range blocklist {
+		if blockedRegex.MatchString(proposedUsername) {
 			// Denied.
-			log.Debugln(eventData.client.User.DisplayName, "blocked from changing name to", proposedUsername, "due to blocked name", normalizedName)
+			log.Warnln(eventData.client.User.DisplayName, "blocked from changing name to", proposedUsername, "due to blocked name", blockedRegex.String())
 			message := fmt.Sprintf("You cannot change your name to **%s**.", proposedUsername)
 			s.sendActionToClient(eventData.client, message)
 
@@ -111,6 +108,19 @@ func (s *Server) userMessageSent(eventData chatClientEvent) {
 	}
 
 	payload := event.GetBroadcastPayload()
+
+	// Check against the word filter. We're currently using the forbidden users list as a stand-in.
+	blocklist := data.GetForbiddenUsernameRegexList()
+
+	for _, blockedRegex := range blocklist {
+		if blockedRegex.MatchString(event.Body) && eventData.client != nil {
+			log.Warnf("blocked a message that caught a word filter (filter: %v, contents: %v, displayname: %v, userid: %v)", blockedRegex.String(), event.Body, event.User.DisplayName, event.User.ID)
+			// Silently drop the message and don't save it, but send it back to the user.
+			s.Send(payload, eventData.client)
+			return
+		}
+	}
+
 	if err := s.Broadcast(payload); err != nil {
 		log.Errorln("error broadcasting UserMessageEvent payload", err)
 		return

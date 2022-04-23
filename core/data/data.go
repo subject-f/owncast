@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"time"
 
 	"github.com/owncast/owncast/config"
@@ -23,6 +24,9 @@ const (
 var (
 	_db        *sql.DB
 	_datastore *Datastore
+
+	// Cached, ephemeral vars.
+	_forbiddenNamesRegex []regexp.Regexp
 )
 
 // GetDatabase will return the shared instance of the actual database.
