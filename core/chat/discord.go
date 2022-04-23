@@ -27,17 +27,20 @@ const (
 )
 
 var (
-	_discordClient  *discordgo.Session
 	_discordChannel = make(chan events.UserMessageEvent, CHANNEL_BUFFER_SIZE)
+	_discordClient  *discordgo.Session
 
 	channelId        string
 	maxMessageLength int = DEFAULT_MESSAGE_LENGTH
 
-	emojiRegex      = regexp.MustCompile(`(?:<img.*?alt=")(.*?)(?:".*?>)`)
-	discordCommands = map[string]func(*discordgo.Session, *discordgo.MessageCreate, ...string){
-		"!bind":    bindChannelCommand,
-		"!unbind":  unbindChannelCommand,
-		"!mlength": mlengthCommand,
+	emojiCache        map[string]*discordgo.Emoji // Case insensitive
+	emojiRegex        = regexp.MustCompile(`(?:<img.*?alt=")(.*?)(?:".*?>)`)
+	discordEmojiRegex = regexp.MustCompile(`(?:\:)(\w+)(?:\:)`)
+	discordCommands   = map[string]func(*discordgo.Session, *discordgo.MessageCreate, ...string){
+		"!bind":          bindChannelCommand,
+		"!unbind":        unbindChannelCommand,
+		"!mlength":       mlengthCommand,
+		"!refreshemojis": refreshEmojisCommand,
 	}
 )
 
@@ -67,6 +70,7 @@ func init() {
 	log.Infoln("Successfully connected to Discord gateway.")
 
 	_discordClient.AddHandler(messageReceive)
+	refreshEmojis()
 }
 
 func messageReceive(s *discordgo.Session, m *discordgo.MessageCreate) {
@@ -146,6 +150,11 @@ func mlengthCommand(s *discordgo.Session, m *discordgo.MessageCreate, args ...st
 	s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Successfully set message length to `%v`.", maxMessageLength))
 }
 
+func refreshEmojisCommand(s *discordgo.Session, m *discordgo.MessageCreate, args ...string) {
+	refreshEmojis()
+	s.ChannelMessageSend(m.ChannelID, "Successfully refreshed internal emoji cache.")
+}
+
 func messageSend() {
 	ticker := time.NewTicker(INTERVAL_TIMER_MS * time.Millisecond)
 	lastMessageTime := time.Now()
@@ -173,7 +182,7 @@ func messageSend() {
 		select {
 		case message := <-_discordChannel:
 			lastMessageTime = time.Now()
-			messageString := parseString(fmt.Sprintf("**%v:** %v", message.User.DisplayName, message.Body))
+			messageString := fmt.Sprintf("**%v:** %v", message.User.DisplayName, parseDiscordString(parseString(message.Body)))
 
 			if charCount+len(messageString) > MAX_CHAR_COUNT {
 				flushBuffer()
@@ -199,6 +208,27 @@ func IsValidMessageLength(input string) bool {
 	return len(parsedMessage) <= maxMessageLength
 }
 
+func refreshEmojis() {
+	emojiCache = make(map[string]*discordgo.Emoji)
+	for _, guild := range _discordClient.State.Guilds {
+		emojis, err := _discordClient.GuildEmojis(guild.ID)
+		if err == nil {
+			for _, emoji := range emojis {
+				emojiCache[strings.ToLower(emoji.Name)] = emoji
+			}
+		}
+	}
+}
+
 func parseString(input string) string {
 	return emojiRegex.ReplaceAllString(input, `$1`)
+}
+
+func parseDiscordString(input string) string {
+	return discordEmojiRegex.ReplaceAllStringFunc(input, func(candidate string) string {
+		if emoji, ok := emojiCache[strings.Trim(strings.ToLower(candidate), ":")]; ok {
+			return emoji.MessageFormat()
+		}
+		return candidate
+	})
 }
