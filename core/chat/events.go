@@ -107,6 +107,12 @@ func (s *Server) userMessageSent(eventData chatClientEvent) {
 		return
 	}
 
+	// Guard against messages that are too long.
+	if !IsValidMessageLength(event.Body) {
+		s.sendActionToClient(eventData.client, "Your message is too long. Try a shorter message.")
+		return
+	}
+
 	payload := event.GetBroadcastPayload()
 
 	// Check against the word filter. We're currently using the forbidden users list as a stand-in.
@@ -138,6 +144,8 @@ func (s *Server) userMessageSent(eventData chatClientEvent) {
 	_lastSeenCache[event.User.ID] = time.Now()
 }
 
+// A discord message event doesn't need length or word filter guards because we can ban them on the server.
+// We also don't save these messages internally.
 func (s *Server) discordMessageSent(eventData chatClientEvent) {
 	var event events.UserMessageEvent
 	if err := json.Unmarshal(eventData.data, &event); err != nil {

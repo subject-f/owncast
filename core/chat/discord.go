@@ -23,15 +23,22 @@ const (
 	MAX_CHAR_COUNT        = 2000
 
 	DEFAULT_COLOR          = 0
-	DISCORD_BIND_COMMAND   = "!bind"
-	DISCORD_UNBIND_COMMAND = "!unbind"
+	DEFAULT_MESSAGE_LENGTH = 64
 )
 
 var (
-	channelId       string
 	_discordClient  *discordgo.Session
 	_discordChannel = make(chan events.UserMessageEvent, CHANNEL_BUFFER_SIZE)
-	re              = regexp.MustCompile(`(?:<img.*?alt=")(.*?)(?:".*?>)`)
+
+	channelId        string
+	maxMessageLength int = DEFAULT_MESSAGE_LENGTH
+
+	emojiRegex      = regexp.MustCompile(`(?:<img.*?alt=")(.*?)(?:".*?>)`)
+	discordCommands = map[string]func(*discordgo.Session, *discordgo.MessageCreate, ...string){
+		"!bind":    bindChannelCommand,
+		"!unbind":  unbindChannelCommand,
+		"!mlength": mlengthCommand,
+	}
 )
 
 type DiscordMessage struct {
@@ -67,7 +74,15 @@ func messageReceive(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	if m.Content == DISCORD_BIND_COMMAND || m.Content == DISCORD_UNBIND_COMMAND {
+	// Parse all the commands.
+	fields := strings.Fields(m.Content)
+
+	// Guard against empty inputs, though it shouldn't happen.
+	if len(fields) == 0 {
+		fields = make([]string, 1)
+	}
+
+	if command, ok := discordCommands[fields[0]]; ok {
 		perms, err := s.UserChannelPermissions(m.Author.ID, m.ChannelID)
 
 		if err != nil {
@@ -75,22 +90,15 @@ func messageReceive(s *discordgo.Session, m *discordgo.MessageCreate) {
 			return
 		}
 
+		log.Debugf("User %v (ID: %v) had perms integer of %v, need %v mask.", m.Author.Username, m.Author.ID, perms, discordgo.PermissionManageMessages)
+
 		if perms&discordgo.PermissionManageMessages != discordgo.PermissionManageMessages {
 			s.ChannelMessageSend(m.ChannelID, "You don't have permissions to do that.")
 			return
 		}
 
-		if m.Content == DISCORD_BIND_COMMAND {
-			s.ChannelMessageSend(m.ChannelID, "Current channel has been bound to Owncast chat.")
-			channelId = m.ChannelID
-			return
-		}
-
-		if m.Content == DISCORD_UNBIND_COMMAND {
-			s.ChannelMessageSend(m.ChannelID, "Owncast unbound.")
-			channelId = "0"
-			return
-		}
+		command(s, m, fields[1:]...)
+		return
 	}
 
 	if m.ChannelID == channelId {
@@ -110,6 +118,32 @@ func messageReceive(s *discordgo.Session, m *discordgo.MessageCreate) {
 			_server.inbound <- chatClientEvent{data: byteData, client: nil}
 		}
 	}
+}
+
+func bindChannelCommand(s *discordgo.Session, m *discordgo.MessageCreate, args ...string) {
+	channelId = m.ChannelID
+	s.ChannelMessageSend(m.ChannelID, "Current channel has been bound to Owncast chat.")
+}
+
+func unbindChannelCommand(s *discordgo.Session, m *discordgo.MessageCreate, args ...string) {
+	channelId = "0"
+	s.ChannelMessageSend(m.ChannelID, "Owncast unbound.")
+}
+
+func mlengthCommand(s *discordgo.Session, m *discordgo.MessageCreate, args ...string) {
+	if len(args) == 0 {
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Current max message length is: `%v`", maxMessageLength))
+		return
+	}
+
+	length, err := strconv.Atoi(args[0])
+	if err != nil {
+		s.ChannelMessageSend(m.ChannelID, "Unable to parse message length. It must be an integer.")
+		return
+	}
+
+	maxMessageLength = length
+	s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Successfully set message length to `%v`.", maxMessageLength))
 }
 
 func messageSend() {
@@ -159,6 +193,12 @@ func messageSend() {
 	}
 }
 
+// IsValidMessageLength returns the valid message length after parsing for emojis.
+func IsValidMessageLength(input string) bool {
+	parsedMessage := parseString(input)
+	return len(parsedMessage) <= maxMessageLength
+}
+
 func parseString(input string) string {
-	return re.ReplaceAllString(input, `$1`)
+	return emojiRegex.ReplaceAllString(input, `$1`)
 }
