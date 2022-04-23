@@ -3,6 +3,7 @@ package data
 import (
 	"errors"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -639,15 +640,43 @@ func GetForbiddenUsernameList() []string {
 		return config.DefaultForbiddenUsernames
 	}
 
-	blocklist := strings.Split(usernameString, ",")
+	blocklist := strings.Split(usernameString, "\n")
 
 	return blocklist
 }
 
 // SetForbiddenUsernameList set the username blocklist as a comma separated string.
 func SetForbiddenUsernameList(usernames []string) error {
-	usernameListString := strings.Join(usernames, ",")
+	usernameListString := strings.Join(usernames, "\n")
+	var compiledList []regexp.Regexp
+	for _, username := range usernames {
+		compiled, err := regexp.Compile(username)
+		if err != nil {
+			return err
+		}
+		compiledList = append(compiledList, *compiled)
+	}
+
+	_forbiddenNamesRegex = compiledList
+
 	return _datastore.SetString(blockedUsernamesKey, usernameListString)
+}
+
+// GetForbiddenUsernameRegexList gets the username regex list cached in memory, computing it if necessary.
+// An equivalent getter isn't provided because the client should use SetForbiddenUsernameList instead.
+func GetForbiddenUsernameRegexList() []regexp.Regexp {
+	if len(_forbiddenNamesRegex) == 0 {
+		names := GetForbiddenUsernameList()
+		for _, name := range names {
+			compiled, err := regexp.Compile(name)
+			if err == nil {
+				_forbiddenNamesRegex = append(_forbiddenNamesRegex, *compiled)
+			}
+		}
+	}
+
+	// Pls don't mutate.
+	return _forbiddenNamesRegex
 }
 
 // GetSuggestedUsernamesList will return the suggested usernames as a comma separated string.
