@@ -4,7 +4,7 @@ go 1.17
 
 require (
 	github.com/amalfra/etag v1.0.0
-	github.com/aws/aws-sdk-go v1.43.36
+	github.com/aws/aws-sdk-go v1.43.44
 	github.com/go-fed/activity v1.0.1-0.20210803212804-d866ba75dd0f
 	github.com/go-fed/httpsig v1.1.0
 	github.com/go-ole/go-ole v1.2.6 // indirect
@@ -22,7 +22,7 @@ require (
 	github.com/teris-io/shortid v0.0.0-20201117134242-e59966efd125
 	github.com/yuin/goldmark v1.4.11
 	golang.org/x/mod v0.5.1
-	golang.org/x/time v0.0.0-20220224211638-0e9765cccd65
+	golang.org/x/time v0.0.0-20220411224347-583f2d630306
 	mvdan.cc/xurls v1.1.0
 )
 
@@ -35,7 +35,7 @@ require (
 	github.com/tklauser/numcpus v0.4.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
 	golang.org/x/crypto v0.0.0-20211215153901-e495a2d5b3d3 // indirect
-	golang.org/x/net v0.0.0-20220407224826-aac1ed45d8e3
+	golang.org/x/net v0.0.0-20220421235706-1d1ef9303861
 	golang.org/x/sys v0.0.0-20220325203850-36772127a21f // indirect
 )
 
@@ -73,5 +73,7 @@ require (
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/oschwald/maxminddb-golang v1.9.0 // indirect
 )
+
+require github.com/andybalholm/cascadia v1.3.1
 
 replace github.com/go-fed/activity => github.com/owncast/activity v1.0.1-0.20211229051252-7821289d4026

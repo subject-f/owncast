@@ -28,6 +28,7 @@ const VIDEO_OPTIONS = {
       // used to select the lowest bitrate playlist initially. This helps to decrease playback start time. This setting is false by default.
       enableLowInitialPlaylist: true,
       experimentalBufferBasedABR: true,
+      useNetworkInformationApi: true,
       maxPlaylistRetries: 30,
     },
   },
@@ -291,6 +292,11 @@ class OwncastPlayer {
 
               // Quality selected
               newMenuItem.on('click', function () {
+                // If for some reason tech doesn't exist, then don't do anything
+                if (!tech) {
+                  console.warn('Invalid attempt to access null player tech');
+                  return;
+                }
                 // Only enable this single, selected representation.
                 tech.vhs.representations().forEach(function (rep, index) {
                   rep.enabled(index === item.index);

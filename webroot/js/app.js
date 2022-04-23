@@ -6,11 +6,10 @@ import { URL_WEBSOCKET } from './utils/constants.js';
 
 import { OwncastPlayer } from './components/player.js';
 import SocialIconsList from './components/platform-logos-list.js';
-import UsernameForm from './components/chat/username.js';
 import VideoPoster from './components/video-poster.js';
 import Followers from './components/federation/followers.js';
-
 import Chat from './components/chat/chat.js';
+import { ChatMenu } from './components/chat/chat-menu.js';
 import Websocket, {
   CALLBACKS,
   SOCKET_MESSAGE_TYPES,
@@ -27,6 +26,8 @@ import FediverseFollowModal, {
 
 import { NotifyButton, NotifyModal } from './components/notification.js';
 import { isPushNotificationSupported } from './notification/registerWeb.js';
+import ChatSettingsModal from './components/chat-settings-modal.js';
+
 import {
   addNewlines,
   checkUrlPathForDisplay,
@@ -110,6 +111,9 @@ export default class App extends Component {
       externalActionModalData: null,
       fediverseModalData: null,
 
+      // authentication options
+      indieAuthEnabled: false,
+
       // routing & tabbing
       section: '',
       sectionId: '',
@@ -144,6 +148,8 @@ export default class App extends Component {
     this.closeFediverseFollowModal = this.closeFediverseFollowModal.bind(this);
     this.displayNotificationModal = this.displayNotificationModal.bind(this);
     this.closeNotificationModal = this.closeNotificationModal.bind(this);
+    this.showAuthModal = this.showAuthModal.bind(this);
+    this.closeAuthModal = this.closeAuthModal.bind(this);
 
     // player events
     this.handlePlayerReady = this.handlePlayerReady.bind(this);
@@ -268,8 +274,14 @@ export default class App extends Component {
   }
 
   setConfigData(data = {}) {
-    const { name, summary, chatDisabled, socketHostOverride, notifications } =
-      data;
+    const {
+      name,
+      summary,
+      chatDisabled,
+      socketHostOverride,
+      notifications,
+      authentication,
+    } = data;
     window.document.title = name;
 
     this.socketHostOverride = socketHostOverride;
@@ -281,10 +293,12 @@ export default class App extends Component {
     }
 
     this.hasConfiguredChat = true;
+    const { indieAuthEnabled } = authentication;
 
     this.setState({
       canChat: !chatDisabled,
       notifications,
+      indieAuthEnabled,
       configData: {
         ...data,
         summary: summary && addNewlines(summary),
@@ -619,6 +633,17 @@ export default class App extends Component {
     }
   }
 
+  showAuthModal() {
+    const data = {
+      title: 'Authenticate with chat',
+    };
+    this.setState({ authModalData: data });
+  }
+
+  closeAuthModal() {
+    this.setState({ authModalData: null });
+  }
+
   handleWebsocketMessage(e) {
     if (e.type === SOCKET_MESSAGE_TYPES.ERROR_USER_DISABLED) {
       // User has been actively disabled on the backend. Turn off chat for them.
@@ -638,10 +663,11 @@ export default class App extends Component {
       // When connected the user will return an event letting us know what our
       // user details are so we can display them properly.
       const { user } = e;
-      const { displayName } = user;
+      const { displayName, authenticated } = user;
 
       this.setState({
         username: displayName,
+        authenticated,
         isModerator: checkIsModerator(e),
       });
     }
@@ -725,17 +751,20 @@ export default class App extends Component {
       streamTitle,
       touchKeyboardActive,
       username,
+      authenticated,
       viewerCount,
       websocket,
       windowHeight,
       windowWidth,
       fediverseModalData,
+      authModalData,
       externalActionModalData,
       notificationModalData,
       notifications,
       lastDisconnectTime,
       section,
       sectionId,
+      indieAuthEnabled,
     } = state;
 
     const {
@@ -865,11 +894,33 @@ export default class App extends Component {
         />`}
       />`;
 
+    const authModal =
+      authModalData &&
+      html`
+        <${ExternalActionModal}
+          onClose=${this.closeAuthModal}
+          action=${authModalData}
+          useIframe=${false}
+          customContent=${html`<${ChatSettingsModal}
+            name=${name}
+            logo=${logo}
+            onUsernameChange=${this.handleUsernameChange}
+            username=${username}
+            accessToken=${this.state.accessToken}
+            authenticated=${authenticated}
+            onClose=${this.closeAuthModal}
+            indieAuthEnabled=${indieAuthEnabled}
+            federationEnabled=${federation.enabled}
+          />`}
+        />
+      `;
+
     const chat = this.state.websocket
       ? html`
           <${Chat}
             websocket=${websocket}
             username=${username}
+            authenticated=${authenticated}
             chatInputEnabled=${chatInputEnabled && !chatDisabled}
             instanceTitle=${name}
             accessToken=${accessToken}
@@ -912,6 +963,8 @@ export default class App extends Component {
       });
     }
 
+    const authIcon = '/img/user-settings.svg';
+
     return html`
       <div
         id="app-container"
@@ -942,36 +995,24 @@ export default class App extends Component {
                 >${streamOnline && streamTitle ? streamTitle : name}</span
               >
             </h1>
-            <div
-              id="user-options-container"
-              class="flex flex-row justify-end items-center flex-no-wrap"
-            >
-              <${UsernameForm}
-                username=${username}
-                isModerator=${isModerator}
-                onUsernameChange=${this.handleUsernameChange}
-                onFocus=${this.handleFormFocus}
-                onBlur=${this.handleFormBlur}
-              />
-              <button
-                type="button"
-                id="chat-toggle"
-                onClick=${this.handleChatPanelToggle}
-                class="flex cursor-pointer text-center justify-center items-center min-w-12 h-full bg-gray-800 hover:bg-gray-700"
-                style=${{
-                  display: chatDisabled || noVideoContent ? 'none' : 'block',
-                }}
-              >
-                💬
-              </button>
-            </div>
+
+            <${ChatMenu} username=${username} isModerator=${isModerator} showAuthModal=${
+      indieAuthEnabled && this.showAuthModal
+    } onUsernameChange=${this.handleUsernameChange} onFocus=${
+      this.handleFormFocus
+    } onBlur=${
+      this.handleFormBlur
+    } chatDisabled=${chatDisabled} noVideoContent=${noVideoContent} handleChatPanelToggle=${
+      this.handleChatPanelToggle
+    }>
+            </${ChatMenu}>
           </header>
         </div>
 
         <main class=${mainClass}>
           <div
             id="video-container"
-            class="flex owncast-video-container bg-black w-full bg-center bg-no-repeat flex flex-col items-center justify-start"
+            class="flex owncast-video-container bg-black w-full bg-center bg-no-repeat flex-col items-center justify-start"
           >
             <video
               class="video-js vjs-big-play-centered display-block w-full h-full"
@@ -1042,7 +1083,8 @@ export default class App extends Component {
         </footer>
 
         ${chat} ${externalActionModal} ${fediverseFollowModal}
-        ${notificationModal}
+        ${notificationModal} ${authModal}
+
       </div>
     `;
   }
