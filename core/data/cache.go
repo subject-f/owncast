@@ -5,12 +5,12 @@ import (
 	"sync"
 )
 
-var _cacheLock = sync.Mutex{}
+var _cacheLock = sync.RWMutex{}
 
 // GetCachedValue will return a value for key from the cache.
 func (ds *Datastore) GetCachedValue(key string) ([]byte, error) {
-	_cacheLock.Lock()
-	defer _cacheLock.Unlock()
+	_cacheLock.RLock()
+	defer _cacheLock.RUnlock()
 
 	// Check for a cached value
 	if val, ok := ds.cache[key]; ok {
