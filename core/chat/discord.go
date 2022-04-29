@@ -11,6 +11,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/owncast/owncast/core/chat/events"
+	"github.com/owncast/owncast/core/data"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -41,6 +42,7 @@ var (
 		"!unbind":        unbindChannelCommand,
 		"!mlength":       mlengthCommand,
 		"!refreshemojis": refreshEmojisCommand,
+		"!filteradd":     filterAddCommand,
 	}
 )
 
@@ -153,6 +155,24 @@ func mlengthCommand(s *discordgo.Session, m *discordgo.MessageCreate, args ...st
 func refreshEmojisCommand(s *discordgo.Session, m *discordgo.MessageCreate, args ...string) {
 	refreshEmojis()
 	s.ChannelMessageSend(m.ChannelID, "Successfully refreshed internal emoji cache.")
+}
+
+func filterAddCommand(s *discordgo.Session, m *discordgo.MessageCreate, args ...string) {
+	candidateRegexStr := strings.Join(args, " ")
+	existingUsernames := data.GetForbiddenUsernameList()
+	for _, existingUsername := range existingUsernames {
+		if candidateRegexStr == existingUsername {
+			s.ChannelMessageSend(m.ChannelID, "Regex already exists in forbidden list. Check the admin page for existing entries.")
+			return
+		}
+	}
+	existingUsernames = append(existingUsernames, candidateRegexStr)
+	err := data.SetForbiddenUsernameList(existingUsernames)
+	if err != nil {
+		s.ChannelMessageSend(m.ChannelID, "Failed to set regex, try again.")
+		return
+	}
+	s.ChannelMessageSend(m.ChannelID, "Successfully added forbidden username regex.")
 }
 
 func messageSend() {
