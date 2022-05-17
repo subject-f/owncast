@@ -1,5 +1,6 @@
 import { URL_PLAYBACK_METRICS } from '../utils/constants.js';
 const METRICS_SEND_INTERVAL = 10000;
+const MAX_VALID_LATENCY_SECONDS = 40; // Anything > this gets thrown out.
 
 class PlaybackMetrics {
   constructor(player, videojs) {
@@ -174,6 +175,12 @@ class PlaybackMetrics {
       const segmentTime = segment.dateTimeObject.getTime();
       const now = new Date().getTime();
       const latency = now - segmentTime;
+
+      // Throw away values that seem invalid.
+      if (latency < 0 || latency / 1000 >= MAX_VALID_LATENCY_SECONDS) {
+        return;
+      }
+
       this.trackLatency(latency);
     } catch (err) {
       console.warn(err);
@@ -246,7 +253,7 @@ function getCurrentlyPlayingSegment(tech, old_segment = null) {
   var segment;
   var segment_time;
 
-  // Itinerate trough available segments and get first within which snapshot_time is
+  // Iterate trough available segments and get first within which snapshot_time is
   for (var i = 0, l = target_media.segments.length; i < l; i++) {
     // Note: segment.end may be undefined or is not properly set
     if (snapshot_time < target_media.segments[i].end) {

@@ -631,23 +631,20 @@ func FindHighestVideoQualityIndex(qualities []models.StreamOutputVariant) int {
 
 // GetForbiddenUsernameList will return the blocked usernames as a comma separated string.
 func GetForbiddenUsernameList() []string {
-	usernameString, err := _datastore.GetString(blockedUsernamesKey)
+	usernames, err := _datastore.GetStringSlice(blockedUsernamesKey)
 	if err != nil {
 		return config.DefaultForbiddenUsernames
 	}
 
-	if usernameString == "" {
+	if len(usernames) == 0 {
 		return config.DefaultForbiddenUsernames
 	}
 
-	blocklist := strings.Split(usernameString, "\n")
-
-	return blocklist
+	return usernames
 }
 
 // SetForbiddenUsernameList set the username blocklist as a comma separated string.
 func SetForbiddenUsernameList(usernames []string) error {
-	usernameListString := strings.Join(usernames, "\n")
 	var compiledList []regexp.Regexp
 	for _, username := range usernames {
 		compiled, err := regexp.Compile(username)
@@ -659,7 +656,7 @@ func SetForbiddenUsernameList(usernames []string) error {
 
 	_forbiddenNamesRegex = compiledList
 
-	return _datastore.SetString(blockedUsernamesKey, usernameListString)
+	return _datastore.SetStringSlice(blockedUsernamesKey, usernames)
 }
 
 // GetForbiddenUsernameRegexList gets the username regex list cached in memory, computing it if necessary.
@@ -679,24 +676,21 @@ func GetForbiddenUsernameRegexList() []regexp.Regexp {
 	return _forbiddenNamesRegex
 }
 
-// GetSuggestedUsernamesList will return the suggested usernames as a comma separated string.
+// GetSuggestedUsernamesList will return the suggested usernames.
 // If the number of suggested usernames is smaller than 10, the number pool is not used (see code in the CreateAnonymousUser function).
 func GetSuggestedUsernamesList() []string {
-	usernameString, err := _datastore.GetString(suggestedUsernamesKey)
+	usernames, err := _datastore.GetStringSlice(suggestedUsernamesKey)
 
-	if err != nil || usernameString == "" {
+	if err != nil || len(usernames) == 0 {
 		return []string{}
 	}
 
-	suggestionList := strings.Split(usernameString, ",")
-
-	return suggestionList
+	return usernames
 }
 
-// SetSuggestedUsernamesList sets the username suggestion list as a comma separated string.
+// SetSuggestedUsernamesList sets the username suggestion list.
 func SetSuggestedUsernamesList(usernames []string) error {
-	usernameListString := strings.Join(usernames, ",")
-	return _datastore.SetString(suggestedUsernamesKey, usernameListString)
+	return _datastore.SetStringSlice(suggestedUsernamesKey, usernames)
 }
 
 // GetServerInitTime will return when the server was first setup.
