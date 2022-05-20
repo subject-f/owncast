@@ -10,12 +10,12 @@ import (
 )
 
 // How often we poll for updates.
-const hardwareMetricsPollingInterval = 2 * time.Minute
-const playbackMetricsPollingInterval = 2 * time.Minute
+const hardwareMetricsPollingInterval = 15 * time.Second
+const playbackMetricsPollingInterval = 15 * time.Second
 
 const (
 	// How often we poll for updates.
-	viewerMetricsPollingInterval = 2 * time.Minute
+	viewerMetricsPollingInterval = 15 * time.Second
 	activeChatClientCountKey     = "chat_client_count"
 	activeViewerCountKey         = "viewer_count"
 )
